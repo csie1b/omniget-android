@@ -6,9 +6,11 @@
         "create": true,
         "title": "OmniGet"
       }
-    ]
+    ],
+    "macOSPrivateApi": false
   },
   "bundle": {
+    "createUpdaterArtifacts": false,
     "android": {
       "minSdkVersion": 24
     }

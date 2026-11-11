@@ -1,0 +1,16 @@
+{
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "create": true,
+        "title": "OmniGet"
+      }
+    ]
+  },
+  "bundle": {
+    "android": {
+      "minSdkVersion": 24
+    }
+  }
+}

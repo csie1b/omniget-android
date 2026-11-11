@@ -307,7 +307,7 @@ pub fn trash_paths(paths: &[String]) -> (Vec<String>, Vec<String>) {
         if p.trim().is_empty() {
             continue;
         }
-        match trash::delete(p) {
+        match crate::core::trash::delete(p) {
             Ok(_) => ok.push(p.clone()),
             Err(_) => failed.push(p.clone()),
         }

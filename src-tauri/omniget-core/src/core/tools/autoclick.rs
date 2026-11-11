@@ -10,6 +10,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use anyhow::anyhow;
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 use enigo::{Button, Coordinate, Direction, Enigo, Mouse, Settings};
 use serde::{Deserialize, Serialize};
 
@@ -90,6 +91,7 @@ fn sleep_until(deadline: Instant) {
     }
 }
 
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 fn button_of(name: &str) -> Button {
     match name {
         "right" => Button::Right,
@@ -99,95 +101,103 @@ fn button_of(name: &str) -> Button {
 }
 
 pub fn start(opts: ClickOptions) -> anyhow::Result<()> {
-    if RUNNING.swap(true, Ordering::SeqCst) {
-        return Err(anyhow!("ja esta rodando"));
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        let _ = opts;
+        Err(anyhow!("autoclicker nao e suportado nesta plataforma"))
     }
-    if !(0.1..=1000.0).contains(&opts.cps) {
-        RUNNING.store(false, Ordering::SeqCst);
-        return Err(anyhow!("CPS fora de 0,1 a 1000"));
-    }
-    *LAST_OPTS.lock().unwrap_or_else(|e| e.into_inner()) = Some(opts.clone());
-    *ERROR.lock().unwrap_or_else(|e| e.into_inner()) = None;
-    CLICKS.store(0, Ordering::SeqCst);
-    *STARTED.lock().unwrap_or_else(|e| e.into_inner()) = Some(Instant::now());
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        if RUNNING.swap(true, Ordering::SeqCst) {
+            return Err(anyhow!("ja esta rodando"));
+        }
+        if !(0.1..=1000.0).contains(&opts.cps) {
+            RUNNING.store(false, Ordering::SeqCst);
+            return Err(anyhow!("CPS fora de 0,1 a 1000"));
+        }
+        *LAST_OPTS.lock().unwrap_or_else(|e| e.into_inner()) = Some(opts.clone());
+        *ERROR.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        CLICKS.store(0, Ordering::SeqCst);
+        *STARTED.lock().unwrap_or_else(|e| e.into_inner()) = Some(Instant::now());
 
-    std::thread::Builder::new()
-        .name("omniget-autoclick".into())
-        .spawn(move || {
-            let mut enigo = match Enigo::new(&Settings::default()) {
-                Ok(e) => e,
-                Err(e) => {
-                    *ERROR.lock().unwrap_or_else(|e| e.into_inner()) = Some(format!("nao consegui controlar o mouse: {} (macOS: Ajustes → Privacidade → Acessibilidade)", e));
-                    RUNNING.store(false, Ordering::SeqCst);
-                    return;
-                }
-            };
-            if opts.start_delay > 0 {
-                let until = Instant::now() + Duration::from_secs(opts.start_delay as u64);
-                while RUNNING.load(Ordering::SeqCst) && Instant::now() < until {
-                    std::thread::sleep(Duration::from_millis(20));
-                }
-                *STARTED.lock().unwrap_or_else(|e| e.into_inner()) = Some(Instant::now());
-            }
-            let button = button_of(&opts.button);
-            let base = Duration::from_secs_f64(1.0 / opts.cps);
-            let hold = Duration::from_millis(opts.hold_ms as u64);
-            let started = Instant::now();
-            let mut next = Instant::now();
-            let mut rng_state: u64 = started.elapsed().as_nanos() as u64 ^ 0x9E37_79B9_7F4A_7C15;
-            while RUNNING.load(Ordering::SeqCst) {
-                if opts.max_seconds > 0 && started.elapsed().as_secs() >= opts.max_seconds {
-                    break;
-                }
-                if let Some((x, y)) = opts.position {
-                    let _ = enigo.move_mouse(x, y, Coordinate::Abs);
-                }
-                let clicks = if opts.double { 2 } else { 1 };
-                for _ in 0..clicks {
-                    let r = if hold.is_zero() {
-                        enigo.button(button, Direction::Click)
-                    } else {
-                        enigo.button(button, Direction::Press).and_then(|_| {
-                            std::thread::sleep(hold);
-                            enigo.button(button, Direction::Release)
-                        })
-                    };
-                    if let Err(e) = r {
-                        *ERROR.lock().unwrap_or_else(|e| e.into_inner()) = Some(e.to_string());
+        std::thread::Builder::new()
+            .name("omniget-autoclick".into())
+            .spawn(move || {
+                let mut enigo = match Enigo::new(&Settings::default()) {
+                    Ok(e) => e,
+                    Err(e) => {
+                        *ERROR.lock().unwrap_or_else(|e| e.into_inner()) = Some(format!("nao consegui controlar o mouse: {} (macOS: Ajustes → Privacidade → Acessibilidade)", e));
                         RUNNING.store(false, Ordering::SeqCst);
                         return;
                     }
-                    if opts.double {
-                        std::thread::sleep(Duration::from_millis(30));
-                    }
-                }
-                let n = CLICKS.fetch_add(1, Ordering::SeqCst) + 1;
-                if opts.max_clicks > 0 && n >= opts.max_clicks {
-                    break;
-                }
-                // xorshift para o jitter, sem crate
-                rng_state ^= rng_state << 13;
-                rng_state ^= rng_state >> 7;
-                rng_state ^= rng_state << 17;
-                let jitter = if opts.jitter_pct > 0 {
-                    let pct = (rng_state % (2 * opts.jitter_pct as u64 + 1)) as f64 - opts.jitter_pct as f64;
-                    1.0 + pct / 100.0
-                } else {
-                    1.0
                 };
-                next += base.mul_f64(jitter.max(0.05));
-                if next < Instant::now() {
-                    next = Instant::now();
+                if opts.start_delay > 0 {
+                    let until = Instant::now() + Duration::from_secs(opts.start_delay as u64);
+                    while RUNNING.load(Ordering::SeqCst) && Instant::now() < until {
+                        std::thread::sleep(Duration::from_millis(20));
+                    }
+                    *STARTED.lock().unwrap_or_else(|e| e.into_inner()) = Some(Instant::now());
                 }
-                sleep_until(next);
-            }
-            RUNNING.store(false, Ordering::SeqCst);
-        })
-        .map_err(|e| {
-            RUNNING.store(false, Ordering::SeqCst);
-            anyhow!("thread: {}", e)
-        })?;
-    Ok(())
+                let button = button_of(&opts.button);
+                let base = Duration::from_secs_f64(1.0 / opts.cps);
+                let hold = Duration::from_millis(opts.hold_ms as u64);
+                let started = Instant::now();
+                let mut next = Instant::now();
+                let mut rng_state: u64 = started.elapsed().as_nanos() as u64 ^ 0x9E37_79B9_7F4A_7C15;
+                while RUNNING.load(Ordering::SeqCst) {
+                    if opts.max_seconds > 0 && started.elapsed().as_secs() >= opts.max_seconds {
+                        break;
+                    }
+                    if let Some((x, y)) = opts.position {
+                        let _ = enigo.move_mouse(x, y, Coordinate::Abs);
+                    }
+                    let clicks = if opts.double { 2 } else { 1 };
+                    for _ in 0..clicks {
+                        let r = if hold.is_zero() {
+                            enigo.button(button, Direction::Click)
+                        } else {
+                            enigo.button(button, Direction::Press).and_then(|_| {
+                                std::thread::sleep(hold);
+                                enigo.button(button, Direction::Release)
+                            })
+                        };
+                        if let Err(e) = r {
+                            *ERROR.lock().unwrap_or_else(|e| e.into_inner()) = Some(e.to_string());
+                            RUNNING.store(false, Ordering::SeqCst);
+                            return;
+                        }
+                        if opts.double {
+                            std::thread::sleep(Duration::from_millis(30));
+                        }
+                    }
+                    let n = CLICKS.fetch_add(1, Ordering::SeqCst) + 1;
+                    if opts.max_clicks > 0 && n >= opts.max_clicks {
+                        break;
+                    }
+                    // xorshift para o jitter, sem crate
+                    rng_state ^= rng_state << 13;
+                    rng_state ^= rng_state >> 7;
+                    rng_state ^= rng_state << 17;
+                    let jitter = if opts.jitter_pct > 0 {
+                        let pct = (rng_state % (2 * opts.jitter_pct as u64 + 1)) as f64 - opts.jitter_pct as f64;
+                        1.0 + pct / 100.0
+                    } else {
+                        1.0
+                    };
+                    next += base.mul_f64(jitter.max(0.05));
+                    if next < Instant::now() {
+                        next = Instant::now();
+                    }
+                    sleep_until(next);
+                }
+                RUNNING.store(false, Ordering::SeqCst);
+            })
+            .map_err(|e| {
+                RUNNING.store(false, Ordering::SeqCst);
+                anyhow!("thread: {}", e)
+            })?;
+        Ok(())
+    }
 }
 
 pub fn stop() {
@@ -207,8 +217,13 @@ pub fn toggle() -> anyhow::Result<bool> {
 }
 
 pub fn mouse_position() -> Option<(i32, i32)> {
-    let enigo = Enigo::new(&Settings::default()).ok()?;
-    enigo.location().ok()
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        let enigo = Enigo::new(&Settings::default()).ok()?;
+        enigo.location().ok()
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    None
 }
 
 #[cfg(test)]

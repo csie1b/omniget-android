@@ -678,7 +678,7 @@ pub async fn uninstall(app: &App, leftover_paths: &[String]) -> UninstallResult 
         if app.path.contains('"') || app.path.contains('\n') || app.path.contains('\r') {
             Err(anyhow!("Invalid app path for uninstall"))
         } else {
-            match trash::delete(&app.path) {
+            match crate::core::trash::delete(&app.path) {
                 Ok(_) => Ok("movido para a Lixeira".into()),
                 Err(e) => {
                     let script = format!(
@@ -752,7 +752,7 @@ pub async fn uninstall(app: &App, leftover_paths: &[String]) -> UninstallResult 
                 "rpm" => run("pkexec", &["dnf", "remove", "-y", &app.key])
                     .await
                     .map(|_| "desinstalado".into()),
-                _ => trash::delete(&app.path)
+                _ => crate::core::trash::delete(&app.path)
                     .map(|_| "movido para a lixeira".to_string())
                     .map_err(|e| anyhow!("{}", e)),
             }
@@ -769,7 +769,7 @@ pub async fn uninstall(app: &App, leftover_paths: &[String]) -> UninstallResult 
         }
     }
     for p in leftover_paths {
-        match trash::delete(p) {
+        match crate::core::trash::delete(p) {
             Ok(_) => r.trashed.push(p.clone()),
             Err(_) => r.failed.push(p.clone()),
         }

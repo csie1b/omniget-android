@@ -876,7 +876,10 @@ async fn download_gallerydl() -> anyhow::Result<PathBuf> {
         .timeout(std::time::Duration::from_secs(180))
         .build()?;
 
+    #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
     let response = client.get(url).send().await?;
+    #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
+    let response: reqwest::Response = unreachable!();
     if !response.status().is_success() {
         return Err(anyhow!(
             "Failed to download gallery-dl: HTTP {}",

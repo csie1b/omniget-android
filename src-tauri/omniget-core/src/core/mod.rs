@@ -33,4 +33,5 @@ pub mod shell_words;
 pub mod spicetify;
 pub mod subtitle_merge;
 pub mod tools;
+pub mod trash;
 pub mod ytdlp;

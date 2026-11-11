@@ -359,35 +359,50 @@ pub fn is_recording() -> bool {
 
 /// Digita o texto onde o cursor estiver.
 pub fn type_text(text: &str) -> anyhow::Result<()> {
-    use enigo::{Enigo, Keyboard, Settings};
-    let mut enigo = Enigo::new(&Settings::default())
-        .map_err(|e| anyhow!("teclado: {} (macOS: permissao de Acessibilidade)", e))?;
-    // Um instante para o usuário soltar o atalho antes de digitar.
-    std::thread::sleep(std::time::Duration::from_millis(150));
-    enigo.text(text).map_err(|e| anyhow!("digitar: {}", e))?;
-    Ok(())
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        let _ = text;
+        Err(anyhow!("digitar texto nao e suportado no Android"))
+    }
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        use enigo::{Enigo, Keyboard, Settings};
+        let mut enigo = Enigo::new(&Settings::default())
+            .map_err(|e| anyhow!("teclado: {} (macOS: permissao de Acessibilidade)", e))?;
+        // Um instante para o usuário soltar o atalho antes de digitar.
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        enigo.text(text).map_err(|e| anyhow!("digitar: {}", e))?;
+        Ok(())
+    }
 }
 
 /// Cmd+V / Ctrl+V (o app coloca o texto na área de transferência antes).
 pub fn press_paste() -> anyhow::Result<()> {
-    use enigo::{Direction, Enigo, Key, Keyboard, Settings};
-    let mut enigo = Enigo::new(&Settings::default()).map_err(|e| anyhow!("teclado: {}", e))?;
-    std::thread::sleep(std::time::Duration::from_millis(150));
-    let modifier = if cfg!(target_os = "macos") {
-        Key::Meta
-    } else {
-        Key::Control
-    };
-    enigo
-        .key(modifier, Direction::Press)
-        .map_err(|e| anyhow!("{}", e))?;
-    enigo
-        .key(Key::Unicode('v'), Direction::Click)
-        .map_err(|e| anyhow!("{}", e))?;
-    enigo
-        .key(modifier, Direction::Release)
-        .map_err(|e| anyhow!("{}", e))?;
-    Ok(())
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        Err(anyhow!("colar nao e suportado no Android"))
+    }
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        use enigo::{Direction, Enigo, Key, Keyboard, Settings};
+        let mut enigo = Enigo::new(&Settings::default()).map_err(|e| anyhow!("teclado: {}", e))?;
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        let modifier = if cfg!(target_os = "macos") {
+            Key::Meta
+        } else {
+            Key::Control
+        };
+        enigo
+            .key(modifier, Direction::Press)
+            .map_err(|e| anyhow!("{}", e))?;
+        enigo
+            .key(Key::Unicode('v'), Direction::Click)
+            .map_err(|e| anyhow!("{}", e))?;
+        enigo
+            .key(modifier, Direction::Release)
+            .map_err(|e| anyhow!("{}", e))?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]

@@ -28,6 +28,12 @@ pub async fn copy_file_to_clipboard(path: &Path) -> anyhow::Result<()> {
     {
         copy_file_windows(&path_str).await
     }
+
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    {
+        let _ = path_str;
+        Ok(())
+    }
 }
 
 #[cfg(target_os = "macos")]

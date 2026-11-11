@@ -888,7 +888,7 @@ pub struct CleanResult {
 fn remove_entry(path: &Path, to_trash: bool, result: &mut CleanResult) {
     let (bytes, files) = measure(path);
     let ok = if to_trash {
-        trash::delete(path).is_ok()
+        crate::core::trash::delete(path).is_ok()
     } else if path.is_dir() && !path.is_symlink() {
         std::fs::remove_dir_all(path).is_ok()
     } else {

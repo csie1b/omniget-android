@@ -67,35 +67,49 @@ pub async fn tool_file_search(
 
 // ── Manter acordado (estudo 29, PowerToys Awake) ──
 // Guard próprio, independente da opção "impedir suspensão durante downloads".
+#[cfg(any(target_os = "macos", windows, target_os = "linux"))]
 static AWAKE: OnceLock<Mutex<Option<keepawake::KeepAwake>>> = OnceLock::new();
 
 #[tauri::command]
 pub fn tool_awake_set(active: bool) -> Result<bool, String> {
-    let cell = AWAKE.get_or_init(|| Mutex::new(None));
-    let mut held = cell.lock().map_err(|_| "lock".to_string())?;
-    if active && held.is_none() {
-        let g = keepawake::Builder::default()
-            .display(true)
-            .idle(true)
-            .sleep(true)
-            .app_name("OmniGet")
-            .reason("Tools: keep awake")
-            .create()
-            .map_err(|e| e.to_string())?;
-        *held = Some(g);
-    } else if !active {
-        *held = None;
+    #[cfg(any(target_os = "macos", windows, target_os = "linux"))]
+    {
+        let cell = AWAKE.get_or_init(|| Mutex::new(None));
+        let mut held = cell.lock().map_err(|_| "lock".to_string())?;
+        if active && held.is_none() {
+            let g = keepawake::Builder::default()
+                .display(true)
+                .idle(true)
+                .sleep(true)
+                .app_name("OmniGet")
+                .reason("Tools: keep awake")
+                .create()
+                .map_err(|e| e.to_string())?;
+            *held = Some(g);
+        } else if !active {
+            *held = None;
+        }
+        Ok(held.is_some())
     }
-    Ok(held.is_some())
+    #[cfg(not(any(target_os = "macos", windows, target_os = "linux")))]
+    {
+        let _ = active;
+        Ok(false)
+    }
 }
 
 #[tauri::command]
 pub fn tool_awake_get() -> bool {
-    AWAKE
-        .get()
-        .and_then(|c| c.lock().ok())
-        .map(|h| h.is_some())
-        .unwrap_or(false)
+    #[cfg(any(target_os = "macos", windows, target_os = "linux"))]
+    {
+        AWAKE
+            .get()
+            .and_then(|c| c.lock().ok())
+            .map(|h| h.is_some())
+            .unwrap_or(false)
+    }
+    #[cfg(not(any(target_os = "macos", windows, target_os = "linux")))]
+    false
 }
 
 // ── Apagar com sobrescrita (sys-shred) ─────────────────────────────────

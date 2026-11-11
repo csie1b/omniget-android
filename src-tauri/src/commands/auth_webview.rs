@@ -80,11 +80,15 @@ pub async fn open_auth_webview(
     let nav_login_host = login_host.clone();
     let nav_login_path = login_path.clone();
 
+    #[allow(unused_mut)]
     let mut builder =
         tauri::WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::External(parsed_url))
-            .title(&request.title)
-            .inner_size(width, height)
-            .center();
+            .title(&request.title);
+
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        builder = builder.inner_size(width, height).center();
+    }
 
     if let Some(ref script) = request.initialization_script {
         builder = builder.initialization_script(script);

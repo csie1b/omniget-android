@@ -36,6 +36,8 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -189,5 +191,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: build-artifacts/*.apk
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
